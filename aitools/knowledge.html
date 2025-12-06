@@ -127,9 +127,35 @@ THEN Giftig</pre>
 
 <script>
 // Behalte die bestehende Logik bei (Fakten/Regeln/Anfragen)
-let facts = [];
+let facts = [
+  "Spitztrank ist rot",
+  "Glühtrank ist pink",
+  "Manatrank ist blau",
+  "Energietrank ist grün",
+  "Energietrank ist Trank",
+  "Spitztrank ist Trank",
+  "Glühtrank ist Trank",
+  "Manatrank ist Trank",
+  "Powertrank ist gelb",
+  "Meistertrank ist gelb",
+  "Turbotrank ist grün",
+  "Powertrank ist Spezialtrank",
+  "Meistertrank ist Spezialtrank",
+  "Turbotrank ist Spezialtrank",
+  "Spezialtrank ist Trank",
+  "Pusteblume ist gelb",
+  "Mohnblume ist blau",
+  "Pusteblume ist Blume",
+  "Mohnblume ist Blume"
+];
 
-let rules = [];
+let rules = [
+  { conditionExpr: "Trank:pink", result: "Fliegen" },
+  { conditionExpr: "gelb", result: "Unbesiegbarkeit" },
+  { conditionExpr: "grün", result: "Stärke" },
+  { conditionExpr: "Trank:rot ODER Trank:pink", result: "heilt" },
+  { conditionExpr: "Spezialtrank:grün ODER Blume:blau", result: "Geschwindigkeit" }
+];
 
 function addFact(){
   const a = document.getElementById('factA').value.trim();
@@ -248,8 +274,9 @@ function evaluateAST(ast, factsList, item){
       const parts = v.split(':');
       const obj = parts[0];
       const attr = parts.slice(1).join(':');
-      // only true if this rule refers to the current item
-      return obj === item && factsList.includes(attr);
+      // Check if item name matches obj OR if item has obj as an attribute (e.g., Turbotrank has Spezialtrank, Spezialtrank has Trank)
+      const isObj = (obj === item) || factsList.includes(obj);
+      return isObj && factsList.includes(attr);
     }
     return factsList.includes(v);
   }
