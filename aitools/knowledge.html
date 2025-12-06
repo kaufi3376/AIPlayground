@@ -127,35 +127,9 @@ THEN Giftig</pre>
 
 <script>
 // Behalte die bestehende Logik bei (Fakten/Regeln/Anfragen)
-let facts = [
-  "Spitztrank ist rot",
-  "Glühtrank ist pink",
-  "Manatrank ist blau",
-  "Energietrank ist grün",
-  "Energietrank ist Trank",
-  "Spitztrank ist Trank",
-  "Glühtrank ist Trank",
-  "Manatrank ist Trank",
-  "Powertrank ist gelb",
-  "Meistertrank ist gelb",
-  "Turbotrank ist grün",
-  "Powertrank ist Spezialtrank",
-  "Meistertrank ist Spezialtrank",
-  "Turbotrank ist Spezialtrank",
-  "Spezialtrank ist Trank",
-  "Pusteblume ist gelb",
-  "Mohnblume ist blau",
-  "Pusteblume ist Blume",
-  "Mohnblume ist Blume"
-];
+let facts = [];
 
-let rules = [
-  { conditionExpr: "Trank:pink", result: "Fliegen" },
-  { conditionExpr: "gelb", result: "Unbesiegbarkeit" },
-  { conditionExpr: "grün", result: "Stärke" },
-  { conditionExpr: "Trank:rot ODER Trank:pink", result: "heilt" },
-  { conditionExpr: "Spezialtrank:grün ODER Blume:blau", result: "Geschwindigkeit" }
-];
+let rules = [];
 
 function addFact(){
   const a = document.getElementById('factA').value.trim();
