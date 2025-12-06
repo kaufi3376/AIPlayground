@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Playground</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+body { background-color: #f8f9fa; font-family: Arial, sans-serif; margin:0; display:flex; flex-direction:column; min-height:100vh; }
+header, footer { background-color:#0d6efd; color:white; padding:20px; text-align:center; font-size:1.5rem; font-weight:bold; }
+.tree-wrapper { flex:1; display:flex; justify-content:center; align-items:center; position:relative; }
+.tree-container { display:flex; flex-direction:column; align-items:center; position:relative; }
+    .node { padding: 28px 50px; margin: 14px; border-radius: 12px; background-color: #6c757d; color: white; text-align:center; cursor:default; box-shadow: 3px 3px 16px rgba(0,0,0,0.14); transition: transform 0.2s; position: relative; z-index:2; font-size: 1.4rem; min-width: 220px; }
+    /* Only clickable/colored nodes should scale on hover; static/muted nodes stay fixed */
+    .node.clickable:hover { transform: scale(1.05); }
+    /* Clickable nodes use navbar colors; non-clickable nodes use muted base color */
+    .node.clickable { cursor: pointer; }
+    .node.clickable.knn { background-color: #28a745; }
+    .node.clickable.knn:hover { background-color: #218838; }
+    .node.clickable.lr { background-color: #6f42c1; }
+    .node.clickable.lr:hover { background-color: #5936a8; }
+    .node.clickable.kmeans { background-color: #fd7e14; }
+    .node.clickable.kmeans:hover { background-color: #e06600; }
+    .node.clickable.rl { background-color: #20c997; }
+    .node.clickable.rl:hover { background-color: #198754; }
+    /* Wissensbasierte KI color */
+    .node.clickable.kb { background-color: #0dcaf0; }
+    .node.clickable.kb:hover { background-color: #0bb7d9; }
+    .children { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 36px; gap: 40px; }
+    .branch { display: flex; flex-direction: column; align-items: center; position: relative; }
+    .branch-children { display: flex; justify-content: center; flex-wrap: wrap; gap: 40px; margin-top: 90px; }
+    /* Root- und AI-Node sizing */
+    #root { font-size: 1.4rem; padding: 20px 36px; box-shadow: 4px 4px 16px rgba(0,0,0,0.12); }
+    #aiRoot { font-size: 2.4rem; padding: 44px 80px; box-shadow: 6px 6px 26px rgba(0,0,0,0.18); }
+        svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+
+        /* Stacked layout to avoid overlaps on small screens */
+        .stacked .children { flex-direction: column; align-items: center; gap: 18px; margin-top: 22px; }
+        .stacked .branch { width: 100%; align-items: center; }
+        .stacked .branch-children { flex-direction: column; gap: 12px; margin-top: 18px; }
+        .stacked .node { min-width: 160px; }
+
+        /* Responsive fallback: smaller screens use stacked layout */
+        @media (max-width: 900px) {
+            .children { flex-direction: column; gap: 18px; margin-top: 22px; }
+            .branch-children { flex-direction: column; gap: 12px; margin-top: 18px; }
+            .node { min-width: 160px; }
+        }
+/* navbar button styles */
+.nav-node { color: #fff !important; margin-left:8px; padding:6px 12px; border-radius:8px; font-weight:600; }
+.nav-node.knn { background-color:#28a745; }
+.nav-node.knn:hover { background-color:#218838; color:#fff !important; }
+.nav-node.lr { background-color:#6f42c1; }
+.nav-node.lr:hover { background-color:#5936a8; color:#fff !important; }
+.nav-node.kmeans { background-color:#fd7e14; }
+.nav-node.kmeans:hover { background-color:#e06600; color:#fff !important; }
+.nav-node.rl { background-color:#20c997; }
+.nav-node.rl:hover { background-color:#198754; color:#fff !important; }
+.nav-node.static { background-color:transparent; border-radius:0; padding:0; margin-right:12px; }
+.nav-node.active { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.navbar-custom { background-color: #0d6efd; }
+</style>
+</head>
+<body>
+
+<header>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container-fluid" style="padding-left:18px;padding-right:18px;">
+            <a class="navbar-brand text-white fw-bold" href="index.html">AI-Playground</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+                    <li class="nav-item"><a class="nav-link nav-node static" href="#">Maschinelles Lernen</a></li>
+                    <li class="nav-item"><a class="nav-link nav-node knn" href="aitools/classification.html">KNN</a></li>
+                    <li class="nav-item"><a class="nav-link nav-node lr" href="aitools/linearregression.html">Lineare Regression</a></li>
+                    <li class="nav-item"><a class="nav-link nav-node kmeans" href="aitools/kmeans.html">K-Means</a></li>
+                    <li class="nav-item"><a class="nav-link nav-node rl" href="aitools/drnim.html">DR.NIM</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<div class="tree-wrapper">
+    <div class="tree-container" id="treeContainer">
+
+        <!-- SVG-Linien -->
+        <svg id="lines"></svg>
+
+        <!-- Parent: Künstliche Intelligenz -->
+        <div class="node static" id="aiRoot">Künstliche Intelligenz</div>
+
+        <!-- AI Level: enthält 'Maschinelles Lernen' und 'Wissensbasierte KI' -->
+        <div class="children" id="aiLevel1">
+            <div class="branch">
+                <div class="node static" id="root">Maschinelles Lernen</div>
+            </div>
+            <div class="branch">
+                <div class="node clickable kb" id="kb" onclick="location.href='aitools/knowledge.html'">Wissensbasierte KI</div>
+            </div>
+        </div>
+
+        <!-- First Level (Kinder von 'Maschinelles Lernen') -->
+        <div class="children" id="level1">
+            <!-- Überwachtes Lernen -->
+            <div class="branch">
+                <div class="node" id="supervised">Überwachtes Lernen</div>
+                <div class="branch-children">
+                    <div class="node clickable knn" onclick="location.href='aitools/classification.html'">Meine Sportart</div>
+                    <div class="node clickable lr" onclick="location.href='aitools/linearregression.html'">Wie viel ist dein Auto wert?</div>
+                </div>
+            </div>
+
+            <!-- Unüberwachtes Lernen -->
+            <div class="branch">
+                <div class="node static" id="unsupervised">Unüberwachtes Lernen</div>
+                <div class="branch-children">
+                    <div class="node clickable kmeans" onclick="location.href='aitools/kmeans.html'">K-Means</div>
+                </div>
+            </div>
+
+            <!-- Verstärkendes Lernen -->
+            <div class="branch">
+                <div class="node static" id="reinforcement">Verstärkendes Lernen</div>
+                <div class="branch-children">
+                    <div class="node clickable rl" onclick="location.href='aitools/drnim.html'">DR.NIM</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<footer>© 2025 AI-Playground | Credits: Patrick Kaufmann</footer>
+
+
+<script>
+// Funktion zum Zeichnen von Linien zwischen Eltern- und Kindknoten
+function drawLines() {
+    const svg = document.getElementById('lines');
+    svg.innerHTML = ''; // alte Linien löschen
+    const container = document.getElementById('treeContainer');
+    const containerRect = container.getBoundingClientRect();
+
+    // Wenn der Container schmal ist, schalte in gestapelten Modus um
+    if (containerRect.width < 900) {
+        container.classList.add('stacked');
+    } else {
+        container.classList.remove('stacked');
+    }
+
+    // Setze die SVG-Größe passend zum Container (verhindert abgeschnittene Linien)
+    svg.setAttribute('width', containerRect.width);
+    svg.setAttribute('height', containerRect.height);
+
+    function lineBetween(parent, child) {
+        const parentRect = parent.getBoundingClientRect();
+        const childRect = child.getBoundingClientRect();
+        // containerRect bereits oben berechnet
+
+        const x1 = parentRect.left + parentRect.width/2 - containerRect.left;
+        const y1 = parentRect.bottom - containerRect.top;
+        const x2 = childRect.left + childRect.width/2 - containerRect.left;
+        const y2 = childRect.top - containerRect.top;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg",'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke','#0d6efd');
+        line.setAttribute('stroke-width','3');
+        line.setAttribute('stroke-linecap','round');
+        svg.appendChild(line);
+    }
+
+    // Künstliche Intelligenz → (Maschinelles Lernen, Wissensbasierte KI)
+    const aiRoot = document.getElementById('aiRoot');
+    const aiLevelNodes = document.querySelectorAll('#aiLevel1 .branch > .node');
+    aiLevelNodes.forEach(child => lineBetween(aiRoot, child));
+
+    // Maschinelles Lernen → Level1
+    const root = document.getElementById('root');
+    const level1Nodes = document.querySelectorAll('#level1 .branch > .node');
+    level1Nodes.forEach(child => lineBetween(root, child));
+
+    // Überwachtes Lernen → KNN, Lineare Regression
+    const supervised = document.getElementById('supervised');
+    supervised.parentElement.querySelectorAll('.branch-children .node').forEach(child => {
+        lineBetween(supervised, child);
+    });
+
+    // Unüberwachtes Lernen → K-Means
+    const unsupervised = document.getElementById('unsupervised');
+    unsupervised.parentElement.querySelectorAll('.branch-children .node').forEach(child => {
+        lineBetween(unsupervised, child);
+    });
+
+    // Verstärkendes Lernen → DR.NIM (falls vorhanden)
+    const reinforcement = document.getElementById('reinforcement');
+    if(reinforcement) {
+        reinforcement.parentElement.querySelectorAll('.branch-children .node').forEach(child => {
+            lineBetween(reinforcement, child);
+        });
+    }
+}
+
+// Linien nach Laden und Resize zeichnen
+window.addEventListener('load', drawLines);
+window.addEventListener('resize', drawLines);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const path = window.location.pathname.split('/').pop();
+    document.querySelectorAll('.nav-node').forEach(function(a){
+        try{
+            const href = a.getAttribute('href');
+            if(href && href.split('/').pop() === path) a.classList.add('active');
+        }catch(e){}
+    });
+});
+</script>
+
+</body>
+</html>

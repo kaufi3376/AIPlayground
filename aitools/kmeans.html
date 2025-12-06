@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Means Clustering Demo</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body { background-color: #f8f9fa; font-family: Arial, sans-serif; margin:0; display:flex; flex-direction:column; min-height:100vh; }
+header, footer { background-color:#0d6efd; color:white; padding:20px; text-align:center; font-size:1.5rem; font-weight:bold; }
+.app-center { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
+.container-flex { display:flex; gap:20px; margin-top:10px; max-width:1200px; width:100%; flex-wrap:wrap; }
+.card { flex:1; min-width:300px; padding:20px; border-radius:10px; box-shadow:2px2px10px rgba(0,0,0,0.1); background:white; }
+.cluster-info { font-size:1rem; font-weight:bold; margin:8px 0; }
+/* navbar button styles */
+.nav-node { color: #fff !important; margin-left:8px; padding:6px 12px; border-radius:8px; font-weight:600; }
+.nav-node.knn { background-color:#28a745; }
+.nav-node.knn:hover { background-color:#218838; color:#fff !important; }
+.nav-node.lr { background-color:#6f42c1; }
+.nav-node.lr:hover { background-color:#5936a8; color:#fff !important; }
+.nav-node.kmeans { background-color:#fd7e14; }
+.nav-node.kmeans:hover { background-color:#e06600; color:#fff !important; }
+.nav-node.rl { background-color:#20c997; }
+.nav-node.rl:hover { background-color:#198754; color:#fff !important; }
+.nav-node.static { background-color:transparent; border-radius:0; padding:0; margin-right:12px; }
+.nav-node.active { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.navbar-custom { background-color: #0d6efd; }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+<header class="bg-blue-600 text-white">
+    <div class="max-w-6xl mx-auto px-4">
+        <div class="flex items-center justify-between h-16">
+            <a href="../index.html" class="font-bold text-lg">AI-Playground</a>
+            <div class="flex items-center space-x-2">
+                <span class="nav-node static text-white">Maschinelles Lernen</span>
+                <a href="classification.html" class="nav-node knn px-3 py-1 rounded text-white bg-green-600 hover:bg-green-700">KNN</a>
+                <a href="linearregression.html" class="nav-node lr px-3 py-1 rounded text-white bg-violet-600 hover:bg-violet-700">Lineare Regression</a>
+                <a href="kmeans.html" class="nav-node kmeans px-3 py-1 rounded text-white bg-orange-500 hover:bg-orange-600">K-Means</a>
+                <a href="drnim.html" class="nav-node rl px-3 py-1 rounded text-white bg-teal-500 hover:bg-teal-600">DR.NIM</a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="app-center">
+    <div class="container-flex">
+    <div class="card shadow p-4">
+        <h2 class="text-center mb-4">K-Means Clustering</h2>
+
+        <label class="form-label">CSV hochladen:</label>
+        <input type="file" class="form-control mb-3" id="csvFile" accept=".csv">
+
+        <label class="form-label">Anzahl der Cluster (k):</label>
+        <div class="d-flex justify-content-between mb-3">
+            <input type="range" id="kValue" class="form-range" min="2" max="6" value="3">
+            <span id="kDisplay">3</span>
+        </div>
+
+        <button class="btn btn-primary w-100 mb-3" onclick="runClustering()">Clustering ausführen</button>
+        <button class="btn btn-outline-secondary w-100 mb-3" onclick="generateRandomData()">Zufällige Daten generieren</button>
+
+        <p class="text-muted small">Lädt CSV mit Spalten: x, y (z.B. Größe, Gewicht)</p>
+
+        <canvas id="chart" width="600" height="400"></canvas>
+    </div>
+
+    <div class="card shadow p-4">
+        <h2 class="text-center mb-4">Cluster-Info</h2>
+        <div id="clusterInfo"></div>
+    </div>
+</div>
+
+<script>
+let data = [];
+let clusters = [];
+let centroids = [];
+let nextPointId = 1; // unique id for each data point
+const manualAssignments = {}; // maps point.id -> clusterIndex (override)
+let selectedPointId = null;
+const clusterColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+
+const ctx = document.getElementById("chart").getContext("2d");
+let chart = null;
+
+// CSV laden
+document.getElementById('csvFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const csv = event.target.result;
+        const lines = csv.split('\n');
+        data = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const parts = lines[i].split(',');
+            if (parts.length >= 2) {
+                data.push({x: parseFloat(parts[0]), y: parseFloat(parts[1]), id: nextPointId++});
+            }
+        }
+        
+        if (data.length > 0) {
+            runClustering();
+        }
+    };
+    reader.readAsText(file);
+});
+
+// Zufällige Daten generieren
+function generateRandomData() {
+    data = [];
+    for (let i = 0; i < 40; i++) {
+        data.push({
+            x: Math.random() * 100,
+            y: Math.random() * 100,
+            id: nextPointId++
+        });
+    }
+    runClustering();
+}
+
+// Distanz zwischen zwei Punkten berechnen
+function distance(p1, p2) {
+    return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+}
+
+// K-Means Algorithmus
+function kMeans(k, maxIterations = 20) {
+    if (data.length === 0) return;
+    
+    // Zufällige Zentroide initialisieren
+    centroids = [];
+    const indices = [];
+    while (indices.length < k && indices.length < data.length) {
+        const idx = Math.floor(Math.random() * data.length);
+        if (!indices.includes(idx)) indices.push(idx);
+    }
+    indices.forEach(idx => {
+        centroids.push({...data[idx]});
+    });
+    
+    // K-Means iterieren
+    for (let iter = 0; iter < maxIterations; iter++) {
+            // Punkte zu Clustern zuordnen (achtet auf manuelle Zuweisungen)
+            clusters = Array(centroids.length).fill(null).map(() => []);
+            for (let i = 0; i < data.length; i++) {
+                const point = data[i];
+                let clusterIdx = 0;
+                if (manualAssignments[point.id] !== undefined) {
+                    // Manueller Override
+                    clusterIdx = manualAssignments[point.id];
+                } else {
+                    let minDist = Infinity;
+                    centroids.forEach((centroid, idx) => {
+                        const d = distance(point, centroid);
+                        if (d < minDist) {
+                            minDist = d;
+                            clusterIdx = idx;
+                        }
+                    });
+                }
+                // Schütze vor ungültigen Indizes
+                if (clusterIdx < 0 || clusterIdx >= clusters.length) clusterIdx = 0;
+                clusters[clusterIdx].push(point);
+            }
+        
+        // Zentroide neu berechnen
+        const newCentroids = centroids.map((centroid, idx) => {
+            if (clusters[idx].length === 0) return centroid;
+            const sumX = clusters[idx].reduce((sum, p) => sum + p.x, 0);
+            const sumY = clusters[idx].reduce((sum, p) => sum + p.y, 0);
+            return {
+                x: sumX / clusters[idx].length,
+                y: sumY / clusters[idx].length
+            };
+        });
+        
+        // Konvergenzcheck
+        let converged = true;
+        for (let i = 0; i < centroids.length; i++) {
+            if (distance(centroids[i], newCentroids[i]) > 0.1) {
+                converged = false;
+                break;
+            }
+        }
+        centroids = newCentroids;
+        if (converged) break;
+    }
+}
+
+// Clustering ausführen
+function runClustering() {
+    if (data.length === 0) {
+        alert('Bitte lade eine CSV-Datei oder generiere zufällige Daten.');
+        return;
+    }
+    
+    const k = parseInt(document.getElementById('kValue').value);
+    kMeans(k);
+    // nachdem Zentroide berechnet sind, stellen wir sicher, dass manuelle Zuweisungen angewendet werden
+    assignClustersFromCentroids();
+    updateChart();
+    updateClusterInfo();
+}
+
+// Verwende die aktuellen Zentroiden, um Cluster zu berechnen (achtet auf manualAssignments)
+function assignClustersFromCentroids() {
+    if (!centroids || centroids.length === 0) return;
+    clusters = Array(centroids.length).fill(null).map(() => []);
+    for (let i = 0; i < data.length; i++) {
+        const point = data[i];
+        let clusterIdx = 0;
+        if (manualAssignments[point.id] !== undefined) {
+            clusterIdx = manualAssignments[point.id];
+        } else {
+            let minDist = Infinity;
+            centroids.forEach((centroid, idx) => {
+                const d = distance(point, centroid);
+                if (d < minDist) { minDist = d; clusterIdx = idx; }
+            });
+        }
+        if (clusterIdx < 0 || clusterIdx >= clusters.length) clusterIdx = 0;
+        clusters[clusterIdx].push(point);
+    }
+}
+
+// Chart aktualisieren
+function updateChart() {
+    const datasets = [];
+    
+    // Datenpunkte nach Cluster
+    clusters.forEach((cluster, idx) => {
+        datasets.push({
+            label: `Cluster ${idx + 1}`,
+            data: cluster,
+            backgroundColor: clusterColors[idx],
+            pointRadius: 6,
+            pointHoverRadius: 8
+        });
+    });
+
+    // Selektierter Punkt (sichtbar oben drauf)
+    if (selectedPointId) {
+        const sel = data.find(p => p.id === selectedPointId);
+        if (sel) {
+            datasets.push({
+                label: 'Selected',
+                data: [sel],
+                backgroundColor: '#fff200',
+                borderColor: '#333',
+                pointRadius: 12,
+                pointBorderWidth: 3,
+                pointStyle: 'circle',
+                order: 2
+            });
+        }
+    }
+    
+    // Halo hinter Zentroiden (größer, halbtransparent)
+    if (centroids && centroids.length) {
+        datasets.push({
+            label: 'Zentroid-Halo',
+            data: centroids.map(c => ({ x: c.x, y: c.y })),
+            backgroundColor: 'rgba(0,0,0,0.08)',
+            pointRadius: 22,
+            pointStyle: 'circle',
+            pointBorderColor: 'rgba(0,0,0,0)',
+            pointHoverRadius: 0,
+            // Render hinter anderen Punkte
+            order: 0
+        });
+
+        // Eigentliche Zentroiden (sichtbar und deutlich)
+        datasets.push({
+            label: 'Zentroide',
+            data: centroids,
+            backgroundColor: '#0b0b0b',
+            pointRadius: 14,
+            pointStyle: 'star',
+            pointBorderColor: 'white',
+            pointBorderWidth: 3,
+            order: 1
+        });
+    }
+    
+    if (chart) {
+        chart.destroy();
+    }
+    
+    chart = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `x: ${context.raw.x.toFixed(2)}, y: ${context.raw.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { min: 0, max: 100, title: { display: true, text: 'X-Wert' } },
+                y: { min: 0, max: 100, title: { display: true, text: 'Y-Wert' } }
+            }
+        }
+    });
+
+    // Click handler: wähle Punkt an und zeige Zuweisungs-UI
+    chart.canvas.onclick = function(evt) {
+        const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+        if (!points || points.length === 0) {
+            hideAssignUI();
+            selectedPointId = null;
+            updateChart();
+            return;
+        }
+        const el = points[0];
+        const ds = chart.data.datasets[el.datasetIndex];
+        // Nur Punkte aus Cluster-Datasets auswählen (Label beginnt mit 'Cluster')
+        if (!ds || !ds.label || !ds.label.startsWith('Cluster')) {
+            // falls Zentroiden angeklickt werden, ignorieren
+            return;
+        }
+        const point = ds.data[el.index];
+        if (!point) return;
+        selectedPointId = point.id;
+        showAssignUI(evt.clientX, evt.clientY, point.id);
+        updateChart();
+    };
+}
+
+// Cluster-Informationen anzeigen
+function updateClusterInfo() {
+    const infoDiv = document.getElementById('clusterInfo');
+    let html = '';
+    
+    clusters.forEach((cluster, idx) => {
+        const centroid = centroids[idx];
+        const avgDist = cluster.length > 0 
+            ? (cluster.reduce((sum, p) => sum + distance(p, centroid), 0) / cluster.length).toFixed(2)
+            : 0;
+        
+        html += `<div class="cluster-info" style="color:${clusterColors[idx]};">
+            <strong>Cluster ${idx + 1}</strong><br>
+            Punkte: ${cluster.length}<br>
+            Zentroid: (${centroid.x.toFixed(2)}, ${centroid.y.toFixed(2)})<br>
+            Ø Distanz: ${avgDist}
+        </div><hr>`;
+    });
+    
+    infoDiv.innerHTML = html;
+}
+
+// UI: Zeige kleines Panel zur Zuweisung eines Punktes zu einem Cluster
+function showAssignUI(clientX, clientY, pointId) {
+    hideAssignUI();
+    const k = parseInt(document.getElementById('kValue').value);
+    const panel = document.createElement('div');
+    panel.id = 'assignPanel';
+    panel.style.position = 'fixed';
+    panel.style.zIndex = 9999;
+    panel.style.left = (clientX + 6) + 'px';
+    panel.style.top = (clientY + 6) + 'px';
+    panel.style.background = 'white';
+    panel.style.border = '1px solid rgba(0,0,0,0.12)';
+    panel.style.padding = '8px';
+    panel.style.borderRadius = '6px';
+    panel.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
+    panel.innerHTML = `<div style="font-weight:700; margin-bottom:6px;">Punkt zuweisen</div>`;
+
+    for (let i = 0; i < k; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm me-1';
+        btn.style.background = clusterColors[i];
+        btn.style.color = '#fff';
+        btn.textContent = `Cluster ${i+1}`;
+        btn.onclick = function(e) { e.stopPropagation(); assignPointToCluster(pointId, i); };
+        panel.appendChild(btn);
+    }
+
+    // Remove override button
+    const rem = document.createElement('button');
+    rem.className = 'btn btn-sm btn-outline-secondary mt-2';
+    rem.style.display = 'block';
+    rem.textContent = manualAssignments[pointId] !== undefined ? 'Override entfernen' : 'Keine Override';
+    rem.onclick = function(e) { e.stopPropagation(); if (manualAssignments[pointId] !== undefined) { delete manualAssignments[pointId]; assignClustersFromCentroids(); updateChart(); updateClusterInfo(); hideAssignUI(); } };
+    panel.appendChild(rem);
+
+    // Close on outside click
+    setTimeout(()=>{
+        document.addEventListener('click', outsideClick);
+    },10);
+
+    document.body.appendChild(panel);
+
+    function outsideClick(ev) {
+        if (!panel.contains(ev.target)) {
+            hideAssignUI();
+            document.removeEventListener('click', outsideClick);
+        }
+    }
+}
+
+function hideAssignUI() {
+    const existing = document.getElementById('assignPanel');
+    if (existing) existing.remove();
+}
+
+function assignPointToCluster(pointId, clusterIdx) {
+    // ensure centroids exist
+    if (!centroids || centroids.length === 0) { alert('Bitte zuerst Clustering ausführen.'); return; }
+    manualAssignments[pointId] = clusterIdx;
+    assignClustersFromCentroids();
+    updateChart();
+    updateClusterInfo();
+    hideAssignUI();
+}
+
+// k-Wert Display aktualisieren
+document.getElementById('kValue').addEventListener('input', function() {
+    document.getElementById('kDisplay').textContent = this.value;
+});
+
+// Initial random data on load
+window.addEventListener('load', generateRandomData);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const path = window.location.pathname.split('/').pop();
+    document.querySelectorAll('.nav-node').forEach(function(a){
+        try{
+            const href = a.getAttribute('href');
+            if(href && href.split('/').pop() === path) a.classList.add('active');
+        }catch(e){}
+    });
+});
+</script>
+
+<footer>© 2025 AI-Playground | Credits: Patrick Kaufmann</footer>
+
+</body>
+</html>

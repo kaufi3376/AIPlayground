@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DR.NIM – Lernspiel (11 Hölzer)</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  :root { --blue:#0d6efd; --card:#fff; --bg:#f8f9fb; }
+  body { margin:0; font-family:Inter,Arial,Helvetica,sans-serif; background:var(--bg); color:#111; display:flex; flex-direction:column; min-height:100vh; }
+  header, footer { background:var(--blue); color:white; padding:20px; text-align:center; font-size:1.5rem; font-weight:bold; margin-bottom:0px;}
+  .navbar-custom { background-color: var(--blue) !important; }
+  .navbar-custom .navbar-brand { font-size: 1.5rem; }
+  .nav-node { border-radius: 0.3rem; padding: 0.35rem 0.7rem; transition: all 0.2s ease; font-weight: 500; }
+  .nav-node.static { color: white !important; cursor: default; }
+  .nav-node.knn { background-color: #28a745; color: white !important; }
+  .nav-node.knn:hover { background-color: #218838; }
+  .nav-node.lr { background-color: #6f42c1; color: white !important; }
+  .nav-node.lr:hover { background-color: #5a32a3; }
+  .nav-node.kmeans { background-color: #fd7e14; color: white !important; }
+  .nav-node.kmeans:hover { background-color: #e0670f; }
+  .nav-node.rl { background-color: #20c997; color: white !important; }
+  .nav-node.rl:hover { background-color: #198754; }
+  .nav-node.active { box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
+  .wrap { flex:1; display:flex; gap:18px; padding:18px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+  .card { background:var(--card); border-radius:10px; box-shadow:0 6px 18px rgba(15,23,42,0.06); padding:16px; }
+.left { width:720px; }
+.right { width:500px; max-width:95%; }
+  .matches { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px; }
+  .match { width:20px; height:80px; background:#5b3; border-radius:3px; box-shadow:inset 0 -6px 6px rgba(0,0,0,0.08); transform:rotate(-6deg); }
+  .match:nth-child(even){ transform:rotate(6deg); }
+  .controls { display:flex; gap:8px; justify-content:center; margin-bottom:8px; flex-wrap:wrap; }
+  .message { text-align:center; min-height:26px; font-weight:600; margin-bottom:8px; }
+  .small { font-size:0.9rem; color:#333; }
+    table.qmatrix { width:100%; border-collapse:collapse; margin-top:6px; font-size:0.85rem; }
+    table.qmatrix th, table.qmatrix td { border:1px solid #e9eef6; padding:4px; text-align:center; vertical-align:middle; }
+    .cell-top { font-weight:700; display:block; margin-bottom:2px; }
+    .cell-meta { font-size:0.75rem; color:#213; display:block; }
+  .cell-top { font-weight:700; display:block; margin-bottom:4px; }
+  .cell-meta { font-size:0.82rem; color:#213; display:block; }
+  .ai-best { box-shadow:0 0 0 3px rgba(13,110,253,0.08) inset; border-radius:6px; }
+  .legend { margin-top:10px; font-size:0.9rem; color:#333; }
+  .controls .btn { min-width:92px; }
+  .settings { display:flex; gap:10px; align-items:center; justify-content:center; margin-top:8px; flex-wrap:wrap; }
+  .muted { color:#556; font-size:0.86rem; }
+</style>
+</head>
+<body>
+<header>
+  <nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container-fluid" style="padding-left:18px;padding-right:18px;">
+      <a class="navbar-brand text-white fw-bold" href="../index.html">AI-Playground</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+          <li class="nav-item"><a class="nav-link nav-node static" href="#">Maschinelles Lernen</a></li>
+          <li class="nav-item"><a class="nav-link nav-node knn" href="classification.html">KNN</a></li>
+          <li class="nav-item"><a class="nav-link nav-node lr" href="linearregression.html">Lineare Regression</a></li>
+          <li class="nav-item"><a class="nav-link nav-node kmeans" href="kmeans.html">K-Means</a></li>
+          <li class="nav-item"><a class="nav-link nav-node rl" href="drnim.html">DR.NIM</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <!-- Spielbereich -->
+  <div class="card left">
+    <h5 style="text-align:center; margin:4px 0 10px 0;">Spiel</h5>
+
+    <div id="matchesRow" class="matches" aria-live="polite"></div>
+
+    <div class="controls">
+      <button class="btn btn-primary" onclick="playerMove(1)">1 nehmen</button>
+      <button class="btn btn-primary" onclick="playerMove(2)">2 nehmen</button>
+      <button class="btn btn-primary" onclick="playerMove(3)">3 nehmen</button>
+      <button class="btn btn-outline-secondary" onclick="resetGame()">Neu starten</button>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <div class="settings">
+      <label class="muted"><input id="playerTrainToggle" type="checkbox" checked> Spieler trainiert KI</label>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="muted">Teach:</span>
+        <input id="teachRate" type="range" min="0" max="1" step="0.05" value="0.5">
+        <span id="teachRateValue" class="muted">0.50</span>
+      </div>
+    </div>
+
+    <p class="small" style="text-align:center; margin-top:8px;">
+      Hinweis: Wenn du eine Aktion wählst, merkt sich die KI die Aktion für diesen Zustand.
+      So lernt sie Schritt für Schritt, was gute Züge sind.
+    </p>
+  </div>
+
+  <!-- Matrixbereich -->
+  <div class="card right">
+    <h5 style="text-align:center; margin:4px 0 8px 0;">Lern-Matrix</h5>
+    <div style="font-size:0.95rem; color:#222; text-align:center; margin-bottom:8px;">
+      Jede Zeile = Zustand (Anzahl Hölzer). In jeder Zelle: oben Q-Wert, unten: P = Spieler, A = KI.
+    </div>
+
+    <div style="max-height:380px; overflow:auto;">
+    <div id="matrixContainer"></div>
+    </div>
+
+    <div class="legend">
+      - Grünere Zellen = höhere Q-Werte (KI findet Aktion gut).<br>
+      - Blaue Einfassung markiert die aktuell von der KI bevorzugte Aktion pro Zustand.<br>
+      - P = Anzahl Spielzüge, A = Anzahl KI-Züge.
+    </div>
+  </div>
+</div>
+
+<footer>© 2025 AI-Playground | Credits: Patrick Kaufmann</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const path = window.location.pathname.split('/').pop();
+    document.querySelectorAll('.nav-node').forEach(function(a){
+        try{
+            const href = a.getAttribute('href');
+            if(href && href.split('/').pop() === path) a.classList.add('active');
+        }catch(e){}
+    });
+});
+</script>
+
+<script>
+/* Neues, eigenständiges Nachbau-Design (funktional ähnlich).
+   Start: 11 Hölzer. Matrix zeigt Q, P (Player counts), A (AI counts).
+*/
+
+const MAX_MATCHES = 11;
+const actions = [1,2,3];
+let matches = MAX_MATCHES;
+
+// Tabellen
+let Q = {};
+let playerCounts = {};
+let aiCounts = {};
+
+function initAll() {
+  Q = {}; playerCounts = {}; aiCounts = {};
+  for (let s=0; s<=MAX_MATCHES; s++) {
+    Q[s] = {}; playerCounts[s] = {}; aiCounts[s] = {};
+    for (let a of actions) { Q[s][a] = 0.0; playerCounts[s][a] = 0; aiCounts[s][a] = 0; }
+  }
+}
+initAll();
+
+// UI Helpers
+function renderMatches() {
+  const wrap = document.getElementById('matchesRow');
+  wrap.innerHTML = '';
+  for (let i=0;i<matches;i++) {
+    const m = document.createElement('div');
+    m.className = 'match';
+    // slight color variation
+    m.style.background = `linear-gradient(to bottom, #e7ffdf, #6cc867)`;
+    wrap.appendChild(m);
+  }
+}
+
+function formatNum(v){ return (Math.round(v*100)/100).toFixed(2); }
+
+// Map Q 0..1 to color greenish (0 = white -> 1 = green)
+function qToColor(q) {
+  const v = Math.max(0, Math.min(1, q));
+  // interpolate from white to green
+  const r = Math.round(255 - v*120);
+  const g = Math.round(255 - (1-v)*120);
+  const b = Math.round(255 - v*140);
+  return `rgb(${r},${g},${b})`;
+}
+
+// choose preferred action by Q (valid actions only)
+function preferredAction(state) {
+  const cand = actions.filter(a => a <= state && a>0);
+  if (cand.length === 0) return null;
+  let best = cand[0], bestVal = Q[state][best], ties=[best];
+  for (let a of cand) {
+    const v = Q[state][a];
+    if (v > bestVal + 1e-9) { best = a; bestVal = v; ties=[a]; }
+    else if (Math.abs(v-bestVal) < 1e-9) ties.push(a);
+  }
+  if (ties.length>1) return ties[Math.floor(Math.random()*ties.length)];
+  return best;
+}
+
+// render matrix
+function renderMatrix() {
+  const container = document.getElementById('matrixContainer');
+  let html = '<table class="qmatrix"><thead><tr><th>Aktion</th>';
+  for (let s = MAX_MATCHES; s >= 0; s--) html += `<th>${s}</th>`;
+  html += '</tr></thead><tbody>';
+  for (let a of actions) {
+    html += `<tr><td><strong>${a}</strong></td>`;
+    for (let s = MAX_MATCHES; s >= 0; s--) {
+      if (a > s || s === 0) {
+        html += `<td style="background:#fbfdff;color:#9aa3ad">—</td>`;
+      } else {
+        const qv = Q[s][a];
+        const bg = qToColor(qv);
+        const pc = playerCounts[s][a] || 0;
+        const ac = aiCounts[s][a] || 0;
+        const cls = (preferredAction(s) === a) ? 'ai-best' : '';
+        html += `<td class="${cls}" style="background:${bg}">`;
+        html += `<span class="cell-top">${formatNum(qv)}</span>`;
+        html += `<span class="cell-meta">P:${pc} A:${ac}</span>`;
+        html += `</td>`;
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// Teach from player: move chosen action toward 1.0, slightly decay others
+function teachFromPlayer(state, action) {
+  if (!document.getElementById('playerTrainToggle').checked) return;
+  const teachRate = parseFloat(document.getElementById('teachRate').value || '0.5');
+  const cur = Q[state][action] || 0;
+  Q[state][action] = cur + teachRate * (1 - cur);
+  for (let a of actions) {
+    if (a === action) continue;
+    Q[state][a] = (Q[state][a] || 0) * (1 - teachRate*0.06);
+  }
+  playerCounts[state][action] = (playerCounts[state][action] || 0) + 1;
+  renderMatrix();
+}
+
+// Player move
+function playerMove(n) {
+  if (matches <= 0) return;
+  if (n > matches) return;
+  const state = matches;
+  teachFromPlayer(state, n);
+  matches -= n;
+  renderMatches();
+  if (matches === 0) {
+    document.getElementById('message').textContent = '❌ Du hast verloren!';
+    renderMatrix();
+    return;
+  }
+  document.getElementById('message').textContent = '';
+  setTimeout(aiMove, 420);
+}
+
+// AI moves (choose preferred and record)
+function aiMove() {
+  if (matches <= 0) return;
+  const state = matches;
+  let cand = actions.filter(a => a <= state && a>0);
+  if (cand.length === 0) cand = [1];
+  // choose best by Q (random tie)
+  let best = cand[0], bestVal = Q[state][best], ties=[best];
+  for (let a of cand) {
+    const v = Q[state][a];
+    if (v > bestVal + 1e-9) { best = a; bestVal = v; ties=[a]; }
+    else if (Math.abs(v-bestVal) < 1e-9) ties.push(a);
+  }
+  if (ties.length>1) best = ties[Math.floor(Math.random()*ties.length)];
+  // record and perform
+  aiCounts[state][best] = (aiCounts[state][best] || 0) + 1;
+  const take = Math.min(best, matches);
+  matches -= take;
+  renderMatches();
+  document.getElementById('message').textContent = '🤖 KI nimmt ' + take + '.';
+  if (matches === 0) {
+    document.getElementById('message').textContent = '🎉 Du hast gewonnen!';
+  }
+  renderMatrix();
+}
+
+// Reset game (keep learned data) — for full reset, also reset tables
+function resetGame() {
+  matches = MAX_MATCHES;
+  document.getElementById('message').textContent = '';
+  renderMatches();
+  renderMatrix();
+}
+
+// Hook slider display
+document.addEventListener('DOMContentLoaded', () => {
+  const slider = document.getElementById('teachRate');
+  const disp = document.getElementById('teachRateValue');
+  function upd(){ disp.textContent = parseFloat(slider.value).toFixed(2); }
+  slider.addEventListener('input', upd);
+  upd();
+  renderMatches();
+  renderMatrix();
+});
+
+// Optionally: function to fully clear learning
+function clearLearning() {
+  initAll();
+  renderMatrix();
+}
+</script>
+</body>
+</html>

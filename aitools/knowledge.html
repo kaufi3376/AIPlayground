@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wissensbasierte KI – Expertensystem Builder</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+body { background-color: #f8f9fa; font-family: Arial, sans-serif; margin:0; display:flex; flex-direction:column; min-height:100vh; }
+header, footer { background-color:#0d6efd; color:white; padding:20px; text-align:center; font-size:1.5rem; font-weight:bold; }
+.app-center { flex:1; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:24px 16px; }
+.container-flex { display:flex; gap:20px; margin-top:10px; max-width:1200px; width:100%; flex-wrap:wrap; }
+.card { flex:1; min-width:300px; padding:20px; border-radius:10px; box-shadow:2px2px10px rgba(0,0,0,0.1); background:white; }
+.page-title { font-size:1.25rem; margin-bottom:8px; font-weight:700; }
+.card #factsTitle { margin-bottom:18px; }
+.card #rulesTitle { margin-bottom:18px; }
+.card #factsListTitle, .card #rulesListTitle { font-size:1.35rem; margin-bottom:12px; }
+.small-muted { color:#556; font-size:0.95rem; }
+.cond-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; justify-content:center; }
+.card #conditions { display:flex; flex-direction:column; align-items:center; }
+.cond-row input { flex:1; }
+pre.rule-block { background:#f6f8fa; padding:12px; border-radius:6px; border:1px solid #e9eef6; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container-fluid" style="padding-left:18px;padding-right:18px;">
+      <a class="navbar-brand text-white fw-bold" href="../index.html">AI-Playground</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+          <li class="nav-item"><a class="nav-link nav-node static" href="#">Maschinelles Lernen</a></li>
+          <li class="nav-item"><a class="nav-link nav-node knn" href="classification.html">KNN</a></li>
+          <li class="nav-item"><a class="nav-link nav-node lr" href="linearregression.html">Lineare Regression</a></li>
+          <li class="nav-item"><a class="nav-link nav-node kmeans" href="kmeans.html">K-Means</a></li>
+          <li class="nav-item"><a class="nav-link nav-node rl" href="drnim.html">DR.NIM</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<div class="app-center">
+  <div class="container-flex">
+    <div class="card">
+      <div class="d-flex align-items-center">
+        <div id="factsTitle" class="page-title">Fakten erstellen</div>
+        <button class="btn btn-sm btn-outline-secondary ms-2 p-1" data-bs-toggle="collapse" data-bs-target="#factsHelp" aria-expanded="false" aria-controls="factsHelp" aria-label="Hilfe zu Fakten" title="Hilfe zu Fakten">?
+        </button>
+      </div>
+      <div class="collapse small-muted mt-2 mb-3" id="factsHelp">
+        <div class="card card-body p-2">
+          Trage ein Objekt und eine Eigenschaft ein, z.B. <code>Kugelpilz ist rot</code>.
+          Fakten werden sofort in der Faktenliste angezeigt und können zur Regel-Auswertung verwendet werden.
+        </div>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <input id="factA" class="form-control" style="max-width:220px;" placeholder="Objekt (z.B. Kugelpilz)" />
+        <span class="small-muted mx-1" style="align-self:center;">ist</span>
+        <input id="factB" class="form-control" style="max-width:220px;" placeholder="Eigenschaft (z.B. rot)" />
+        <button class="btn btn-primary btn-sm px-2" onclick="addFact()" aria-label="Fakt hinzufügen" title="Fakt hinzufügen">+</button>
+      </div>
+      <hr>
+      <div id="factsListTitle" class="page-title text-center">Faktenliste</div>
+      <ul id="facts" class="list-unstyled small-muted"></ul>
+    </div>
+
+    <div class="card">
+      <div class="d-flex align-items-center">
+        <div id="rulesTitle" class="page-title">Regeln erstellen</div>
+        <button class="btn btn-sm btn-outline-secondary ms-2 p-1" data-bs-toggle="collapse" data-bs-target="#rulesHelp" aria-expanded="false" aria-controls="#rulesHelp" aria-label="Hilfe zu Regeln" title="Hilfe zu Regeln">?
+        </button>
+      </div>
+      <div class="collapse small-muted mt-2 mb-3" id="rulesHelp">
+        <div class="card card-body p-2">
+          Erstelle Regeln aus mehreren Bedingungen mit den Operatoren <strong>UND</strong> / <strong>ODER</strong>. Beispiel:
+          <pre class="rule-block mb-0">IF rot UND giftig
+THEN Giftig</pre>
+          Gespeicherte Regeln werden von der Regel-Engine genutzt, um neue Attribute abzuleiten.
+        </div>
+      </div>
+      <hr>
+      
+      <div id="conditions">
+        <div class="cond-row">
+          <input class="form-control form-control-sm condObj" style="max-width:140px;" placeholder="Objekt (optional)" />
+          <input class="form-control form-control-sm condValue" style="max-width:200px;" placeholder="Eigenschaft (z.B. rot)" />
+          <button class="btn btn-sm btn-outline-secondary ms-2" onclick="addConditionRow(true)" title="Bedingung hinzufügen">+</button>
+        </div>
+      </div>
+
+      <div class="text-center my-2" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 12a.5.5 0 0 1-.374-.832l3.5-3.5a.5.5 0 0 1 .748.664L8.748 12.03A.5.5 0 0 1 8 12z"/><path fill-rule="evenodd" d="M8 12a.5.5 0 0 0 .374-.832l-3.5-3.5a.5.5 0 1 0-.748.664L7.252 12.03A.5.5 0 0 0 8 12z"/></svg>
+      </div>
+
+      <div class="text-center mb-2">
+        <label for="resultR" class="small-muted me-2">Ergebnis:</label>
+        <input id="resultR" class="form-control d-inline-block" style="width:220px;" placeholder="z.B. Powerup" />
+      </div>
+
+      <div class="text-center mb-3">
+        <button class="btn btn-success" onclick="saveRule()" aria-label="Regel hinzufügen" title="Regel hinzufügen">Regel hinzufügen</button>
+      </div>
+      
+      <hr>
+      <div id="rulesListTitle" class="page-title text-center">Regelliste</div>
+      <ul id="rules" class="list-unstyled small-muted"></ul>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:1200px; width:100%; margin-top:20px;">
+    <div class="page-title">Anfrage stellen</div>
+    <div class="small-muted">Stelle hier eine Anfrage an das Expertensystem.</div>
+    <hr>
+    <div class="d-flex gap-2 align-items-center mb-2">
+      <input id="query" class="form-control" style="max-width:840px;" placeholder="z.B. Was verleiht Kugelpilz?" />
+      <button class="btn btn-primary" onclick="ask()">Frage senden</button>
+    </div>
+    <div id="answer" class="mt-2"></div>
+  </div>
+
+</div>
+
+<script>
+// Behalte die bestehende Logik bei (Fakten/Regeln/Anfragen)
+let facts = [];
+
+let rules = [];
+
+function addFact(){
+  const a = document.getElementById('factA').value.trim();
+  const b = document.getElementById('factB').value.trim();
+  if(!a || !b) return;
+  facts.push(`${a} ist ${b}`);
+  renderFacts();
+  document.getElementById('factA').value='';
+  document.getElementById('factB').value='';
+}
+function renderFacts(){
+  document.getElementById('facts').innerHTML = facts.map((f,i)=>`<li>${f} <button class="btn btn-sm btn-link text-danger p-0" onclick="removeFact(${i})">✖</button></li>`).join('');
+}
+function removeFact(i){ facts.splice(i,1); renderFacts(); }
+
+function addConditionRow(includeOperator = true){
+  const container = document.getElementById('conditions');
+  const row = document.createElement('div');
+  row.className = 'cond-row';
+  if(includeOperator){
+    row.innerHTML = `
+      <select class="form-select form-select-sm logic" style="max-width:100px;">
+        <option>UND</option>
+        <option>ODER</option>
+      </select>
+      <input class="form-control form-control-sm condObj" style="max-width:140px;" placeholder="Objekt (optional)" />
+      <input class="form-control form-control-sm condValue" style="max-width:200px;" placeholder="Eigenschaft (z.B. rot)" />
+      <button class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">✖</button>
+    `;
+  } else {
+    // initial row: only input and a plus button to add further conditions with operator
+    row.innerHTML = `
+      <input class="form-control form-control-sm condObj" style="max-width:140px;" placeholder="Objekt (optional)" />
+      <input class="form-control form-control-sm condValue" style="max-width:200px;" placeholder="Eigenschaft (z.B. rot)" />
+      <button class="btn btn-sm btn-outline-secondary ms-2" onclick="addConditionRow(true)" title="Bedingung hinzufügen">+</button>
+    `;
+  }
+  container.appendChild(row);
+}
+
+function saveRule(){
+  const rows = [...document.querySelectorAll('#conditions .cond-row')];
+  if(rows.length === 0) return;
+
+  let expr = '';
+  rows.forEach((row, index) => {
+    const valEl = row.querySelector('.condValue');
+    if(!valEl) return;
+    const val = valEl.value.trim();
+    if(!val) return;
+    const objEl = row.querySelector('.condObj');
+    const obj = objEl ? objEl.value.trim() : '';
+    const atom = obj ? `${obj}:${val}` : `${val}`;
+    if(index === 0) expr += atom;
+    else {
+      const opEl = row.querySelector('.logic');
+      const op = opEl ? opEl.value : 'UND';
+      expr += ` ${op} ${atom}`;
+    }
+  });
+
+  const result = document.getElementById('resultR').value.trim();
+  if(!result) return;
+
+  rules.push({ conditionExpr: expr, result });
+  document.getElementById('conditions').innerHTML = '';
+  // recreate initial single input row
+  addConditionRow(false);
+  document.getElementById('resultR').value = '';
+  renderRules();
+}
+
+function renderRules(){
+  document.getElementById('rules').innerHTML = rules.map((r,i)=>{
+    const displayExpr = r.conditionExpr.replace(/(\S+):(\S+)/g, '$1 ist $2');
+    return `<li>WENN ${displayExpr} DANN ${r.result} <button class="btn btn-sm btn-link text-danger p-0" onclick="removeRule(${i})">✖</button></li>`;
+  }).join('');
+}
+function removeRule(i){ rules.splice(i,1); renderRules(); }
+
+function tokenizeRule(expr){
+  return expr.replace(/\(/g,' ( ').replace(/\)/g,' ) ').replace(/\s+/g,' ').trim().split(' ');
+}
+function parseExpression(tokens){
+  let pos=0;
+  function peek(){ return tokens[pos]; }
+  function consume(){ return tokens[pos++]; }
+  function parseAtom(){
+    const t = peek();
+    if(t === '('){ consume(); const n=parseOr(); if(peek()==')') consume(); return n; }
+    return { type:'fact', value: consume() };
+  }
+  function parseAnd(){
+    let left=parseAtom();
+    while(peek()==='UND'){ consume(); left={ type:'and', left, right:parseAtom() }; }
+    return left;
+  }
+  function parseOr(){
+    let left=parseAnd();
+    while(peek()==='ODER'){ consume(); left={ type:'or', left, right:parseAnd() }; }
+    return left;
+  }
+  return tokens.length ? parseOr() : null;
+}
+function evaluateRule(r, factsList, item){
+  const tokens = tokenizeRule(r.conditionExpr);
+  const ast = parseExpression(tokens);
+  return evaluateAST(ast, factsList, item);
+}
+
+function evaluateAST(ast, factsList, item){
+  if(!ast) return false;
+  if(ast.type==='fact'){
+    const v = ast.value;
+    if(v.includes(':')){
+      const parts = v.split(':');
+      const obj = parts[0];
+      const attr = parts.slice(1).join(':');
+      // only true if this rule refers to the current item
+      return obj === item && factsList.includes(attr);
+    }
+    return factsList.includes(v);
+  }
+  if(ast.type==='and') return evaluateAST(ast.left,factsList,item) && evaluateAST(ast.right,factsList,item);
+  if(ast.type==='or') return evaluateAST(ast.left,factsList,item) || evaluateAST(ast.right,factsList,item);
+}
+
+function evaluate(item){
+  const attrs = facts.filter(f=>f.startsWith(item+" ist ")).map(f=>f.replace(item+" ist ",""));
+  let known = [...attrs];
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(const r of rules){
+      if(evaluateRule(r, known, item) && !known.includes(r.result)){
+        known.push(r.result);
+        changed=true;
+      }
+    }
+  }
+  return { attrs, derived: known.filter(x => !attrs.includes(x)) };
+}
+
+function ask(){
+  const q = document.getElementById('query').value;
+  let item = null;
+  facts.forEach(f => { const n=f.split(' ist ')[0]; if(q.includes(n)) item=n; });
+  if(!item){
+    // No specific item found — try to interpret query as asking which items grant an attribute
+    const ql = q.toLowerCase();
+
+    // If the user explicitly used the word 'Ergebnis', extract attribute after it (e.g. 'Ergebnis: PowerUp')
+    const m = q.match(/ergebnis\s*[:\-]?\s*(.+)/i);
+    let foundAttr = null;
+    if(m && m[1]){
+      foundAttr = m[1].trim();
+      // strip trailing punctuation
+      foundAttr = foundAttr.replace(/[\.\?\!\,]$/,'').trim();
+    }
+
+    // Otherwise, try to infer an attribute mentioned in the query (from facts and rule results)
+    if(!foundAttr){
+      const allAttrs = new Set();
+      rules.forEach(r=> allAttrs.add(r.result));
+      facts.forEach(f=> { const a = f.split(' ist ')[1]; if(a) allAttrs.add(a); });
+      for(const a of allAttrs){ if(ql.includes(a.toLowerCase())){ foundAttr = a; break; } }
+    }
+
+    if(foundAttr){
+      // find items that have this attribute (direct or derived)
+      const items = getAllItems();
+      const matches = [];
+      for(const it of items){
+        const r = evaluate(it);
+        const direct = r.attrs.find(x=> x.toLowerCase()===foundAttr.toLowerCase());
+        const derived = r.derived.find(x=> x.toLowerCase()===foundAttr.toLowerCase());
+        if(direct || derived) matches.push({item: it, direct: !!direct, derived: !!derived});
+      }
+      if(matches.length === 0){
+        document.getElementById('answer').innerHTML = `<div class='alert alert-info'>Keine Objekte gefunden, die '${foundAttr}' verleihen.</div>`;
+        return;
+      }
+      let out = `<div class='mb-2'><strong>Objekte, die '${foundAttr}' verleihen:</strong></div>`;
+      out += `<ul>`;
+      matches.forEach(m => {
+        const note = m.direct ? 'direkt' : (m.derived ? 'abgeleitet' : '');
+        out += `<li>${m.item} <small class='text-muted'>(${note})</small></li>`;
+      });
+      out += `</ul>`;
+      document.getElementById('answer').innerHTML = out;
+      return;
+    }
+    document.getElementById('answer').innerHTML="<div class='alert alert-danger'>Objekt nicht gefunden.</div>";
+    return;
+  }
+
+  const r = evaluate(item);
+  let out = `<div class='mb-2'><strong>Attribute von ${item}:</strong></div>`;
+  out += `<div>• Direkt: ${r.attrs.join(', ') || '—'}</div>`;
+  out += `<div>• Abgeleitet: ${r.derived.join(', ') || '—'}</div>`;
+
+  document.getElementById('answer').innerHTML = out;
+}
+
+function getAllItems(){
+  const set = new Set();
+  facts.forEach(f => { const n = f.split(' ist ')[0]; if(n) set.add(n); });
+  return Array.from(set);
+}
+// Render initial demo data
+renderFacts();
+renderRules();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Active nav highlighting (same logic used across other pages)
+document.addEventListener('DOMContentLoaded', function(){
+    const path = window.location.pathname.split('/').pop();
+    document.querySelectorAll('.nav-node').forEach(function(a){
+        try{
+            const href = a.getAttribute('href');
+            if(href && href.split('/').pop() === path) a.classList.add('active');
+        }catch(e){}
+    });
+});
+</script>
+
+<footer>© 2025 AI-Playground | Credits: Patrick Kaufmann</footer>
+
+</body>
+</html>
