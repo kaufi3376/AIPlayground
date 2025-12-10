@@ -45,6 +45,13 @@ pre.rule-block { background:#f6f8fa; padding:12px; border-radius:6px; border:1px
 </header>
 
 <div class="app-center">
+  <div class="d-flex justify-content-center align-items-center gap-2 mb-3">
+    <div class="form-check form-switch">
+      <label class="form-check-label" for="exampleDataSwitch">Beispieldaten Laden</label>
+      <input class="form-check-input" type="checkbox" role="switch" id="exampleDataSwitch" onchange="toggleExampleData()">
+
+    </div>
+  </div>
   <div class="container-flex">
     <div class="card">
       <div class="d-flex align-items-center">
@@ -127,9 +134,52 @@ THEN Giftig</pre>
 
 <script>
 // Behalte die bestehende Logik bei (Fakten/Regeln/Anfragen)
+const exampleFacts = [
+  "Spitztrank ist rot",
+  "Glühtrank ist pink",
+  "Manatrank ist blau",
+  "Energietrank ist grün",
+  "Energietrank ist Trank",
+  "Spitztrank ist Trank",
+  "Glühtrank ist Trank",
+  "Manatrank ist Trank",
+  "Powertrank ist gelb",
+  "Meistertrank ist gelb",
+  "Turbotrank ist grün",
+  "Powertrank ist Spezialtrank",
+  "Meistertrank ist Spezialtrank",
+  "Turbotrank ist Spezialtrank",
+  "Spezialtrank ist Trank",
+  "Pusteblume ist gelb",
+  "Mohnblume ist blau",
+  "Pusteblume ist Blume",
+  "Mohnblume ist Blume"
+];
+
+const exampleRules = [
+  { conditionExpr: "Trank:pink", result: "Fliegen" },
+  { conditionExpr: "gelb", result: "Unbesiegbarkeit" },
+  { conditionExpr: "grün", result: "Stärke" },
+  { conditionExpr: "Trank:rot ODER Trank:pink", result: "heilt" },
+  { conditionExpr: "Spezialtrank:grün ODER Blume:blau", result: "Geschwindigkeit" }
+];
+
 let facts = [];
 
 let rules = [];
+
+function toggleExampleData(){
+  const isChecked = document.getElementById('exampleDataSwitch').checked;
+  if(isChecked){
+    facts = [...exampleFacts];
+    rules = exampleRules.map(r => ({...r}));
+  } else {
+    facts = [];
+    rules = [];
+  }
+  renderFacts();
+  renderRules();
+}
 
 function addFact(){
   const a = document.getElementById('factA').value.trim();
